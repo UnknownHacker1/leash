@@ -1,3 +1,5 @@
 node_modules/
 data/
 .env
+NOTES.local.md
+REVIEW_agent3.md

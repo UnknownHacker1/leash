@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_POLICY, evaluate, normalizePolicy, stricter, round2 } from './src/policy.mjs';
 import { byId, search, CATALOG } from './src/catalog.mjs';
 import { createPayPal } from './src/paypal.mjs';
@@ -11,8 +11,12 @@ import { aiMode, compilePolicy, auditPurchase, runAgent } from './src/ai.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PORT = +process.env.PORT || 8787;
+const HOST = process.env.HOST || '127.0.0.1';
+// Owner actions (rules, freeze, approve, refund, wallet) need this token. The dashboard gets it embedded in its page;
+// agents only ever get /api/agent/call, so a tool call or a hostile web page cannot loosen the rules.
+const OWNER_TOKEN = process.env.LEASH_OWNER_TOKEN || randomBytes(18).toString('hex');
 const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-const DATA = join(ROOT, 'data', 'state.json');
+const DATA = join(process.env.LEASH_DATA_DIR || join(ROOT, 'data'), 'state.json');
 const paypal = createPayPal({ clientId: process.env.PAYPAL_CLIENT_ID, secret: process.env.PAYPAL_CLIENT_SECRET, publicUrl: PUBLIC_URL });
 
 const fresh = () => ({
@@ -159,10 +163,17 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
 const redirect = (res, to) => { res.writeHead(302, { Location: to }); res.end(); };
 async function body(req) {
+  if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) throw Object.assign(new Error('Send JSON (Content-Type: application/json).'), { code: 415 });
   let s = '';
   for await (const c of req) { s += c; if (s.length > 1e5) throw new Error('body too large'); }
   return s ? JSON.parse(s) : {};
 }
+const isOwner = req => {
+  const got = Buffer.from(String(req.headers['x-leash-owner'] || ''));
+  const want = Buffer.from(OWNER_TOKEN);
+  return got.length === want.length && timingSafeEqual(got, want);
+};
+const AGENT_ROUTES = new Set(['POST /api/agent/call']);
 const entry = id => S.ledger.find(e => e.id === id);
 
 const routes = {
@@ -295,6 +306,7 @@ const entryRoutes = {
 createServer(async (req, res) => {
   const url = new URL(req.url, PUBLIC_URL);
   try {
+    if (req.method === 'POST' && !AGENT_ROUTES.has(`POST ${url.pathname}`) && !isOwner(req)) return json(res, 403, { error: 'Owner only.' });
     const b = req.method === 'POST' ? await body(req) : {};
     const route = routes[`${req.method} ${url.pathname}`];
     if (route) return await route(req, res, b, url);
@@ -309,11 +321,12 @@ createServer(async (req, res) => {
     const data = await readFile(join(ROOT, 'public', file)).catch(() => null);
     if (!data) return json(res, 404, { error: 'Not found' });
     res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' });
-    res.end(data);
+    res.end(file === 'index.html' ? data.toString().replace('</head>', `<meta name="leash-owner" content="${OWNER_TOKEN}">
+</head>`) : data);
   } catch (err) {
-    console.error(err);
-    if (!res.headersSent) json(res, 500, { error: err.message });
+    if (err.code !== 415) console.error(err);
+    if (!res.headersSent) json(res, err.code === 415 ? 415 : 500, { error: err.message });
   }
-}).listen(PORT, () => {
-  console.log(`Leash on ${PUBLIC_URL}  (AI: ${aiMode}, PayPal: ${paypal.mode})`);
+}).listen(PORT, HOST, () => {
+  console.log(`Leash on ${PUBLIC_URL} (listening on ${HOST})  (AI: ${aiMode}, PayPal: ${paypal.mode})`);
 });

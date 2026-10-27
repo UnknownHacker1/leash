@@ -1,3 +1,4 @@
+const OWNER = document.querySelector('meta[name=leash-owner]')?.content || '';
 const $ = s => document.querySelector(s);
 const money = n => '$' + (+n || 0).toFixed(2);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -13,7 +14,7 @@ function toast(msg) {
 }
 
 async function api(path, body) {
-  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Leash-Owner': OWNER }, body: JSON.stringify(body || {}) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   if (j.redirect) location.href = j.redirect;

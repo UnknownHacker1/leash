@@ -5,7 +5,7 @@
 AI agents can now shop for you. The scary part isn't the shopping, it's that one poisoned product page can talk an agent into buying a $95 "verification card" with your money. Leash sits between the agent and PayPal. Every purchase the agent attempts goes through two gates before any money moves:
 
 1. **Your rules, compiled by Claude.** Write them in plain English ("$150 a week on office supplies, software and coffee, ask me over $40, never gift cards"). Claude turns that into a strict policy: budget window, per-purchase cap, approval threshold, allowed and blocked categories, velocity limit. The policy is enforced by plain deterministic code, not by the model.
-2. **An AI audit of intent.** Claude checks each purchase against the task you actually gave the agent and flags prompt injection, off-task buys and cash-out items. The audit can only make a decision *stricter*. It can never approve something the rules refused.
+2. **An AI audit of intent.** Claude checks each purchase against the agent's task (the one you typed for the built-in agent; the one an outside MCP agent reports for itself) and flags prompt injection, off-task buys and cash-out items. The audit can only make a decision *stricter*. It can never approve something the rules refused.
 
 Then one of three things happens:
 
@@ -29,7 +29,7 @@ npm start
 
 Open http://localhost:8787, click **Connect PayPal wallet**, then **Run agent**.
 
-With no keys, Leash runs fully offline and says so in the header: a mock PayPal, a scripted agent and a keyword heuristic in place of Claude. Every flow (pay, hold, refuse, approve, refund, freeze) works end to end.
+With no keys, Leash runs without any API and says so in the header: a mock PayPal, a scripted agent and a keyword heuristic in place of Claude. Every flow (pay, hold, refuse, approve, refund, freeze) works end to end. The dashboard loads fonts and AG Grid from a CDN.
 
 ## Run it for real (PayPal sandbox + Claude)
 
@@ -42,7 +42,7 @@ Fill in:
 - `ANTHROPIC_API_KEY`: from console.anthropic.com. Claude then compiles your rules, audits every purchase, and *is* the shopping agent (manual tool-use loop over `search_catalog`, `get_product`, `request_purchase`).
 - `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET`: developer.paypal.com > Apps & Credentials > your **Sandbox** app. Under the app's features make sure **Vault** (save payment methods) is enabled.
 
-`npm start`, then **Connect PayPal wallet** and log in with your sandbox *personal* (buyer) account to save it. Purchases now create real sandbox orders you can see in the sandbox merchant account.
+`npm start`, then **Connect PayPal wallet** and log in with your sandbox *personal* (buyer) account to save it. Purchases then go to the PayPal sandbox (Orders v2, Vault v3, Payments v2). Status: this path is written against PayPal's documented APIs but has not yet been run end to end with live sandbox keys; the keyless mock is what the demo video shows.
 
 A real agent may be too smart to fall for the planted injection. To show the firewall catching a compromised agent, tick **Replay a compromised agent**: it replays a run where the agent believes the coffee listing and tries to buy the "Merchant Verification Card".
 
@@ -55,6 +55,8 @@ A real agent may be too smart to fall for the planted injection. To show the fir
 ```
 
 Claude Code: `claude mcp add leash -- node /path/to/leash/mcp.mjs`. The agent gets `search_catalog`, `get_product` and `request_purchase`; every call shows up live in the dashboard as "external agent over MCP", and every purchase is checked and audited exactly like the built-in agent's.
+
+**What an agent can and cannot reach.** The server listens on 127.0.0.1 only. Agents get one endpoint, `/api/agent/call`. Every owner action (rules, freeze, approve, refund, wallet) needs an owner token that is generated at startup and embedded only in the dashboard page, and every POST must be JSON, so neither an MCP tool call nor a web page the agent visits can loosen the rules. Leash protects against a manipulated agent that only has these tools; an agent with shell access on the same machine is out of scope. Set `LEASH_OWNER_TOKEN` to script owner actions.
 
 ## How it fits together
 
