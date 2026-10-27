@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leash</title>
+<link rel="icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <img src="logo.svg" alt="" width="34" height="34">
+    <div><h1>Leash</h1><p>A spending firewall between your AI agents and your PayPal.</p></div>
+  </div>
+  <div class="pills" id="pills"></div>
+  <button id="freeze" class="freeze" aria-pressed="false"><span class="dot"></span><span id="freezeLabel">Freeze agent</span></button>
+</header>
+
+<main>
+  <section class="row three">
+    <article class="card budget">
+      <h2>Budget left</h2>
+      <div class="big" id="remaining">$0.00</div>
+      <div class="meter"><div id="meterPaid"></div><div id="meterHeld"></div></div>
+      <div class="legend"><span><i class="k paid"></i><b id="paidSum">$0</b> paid</span><span><i class="k held"></i><b id="heldSum">$0</b> held</span><span id="periodLabel">of $150 / week</span></div>
+      <div class="counts" id="counts"></div>
+    </article>
+
+    <article class="card rules">
+      <h2>Rules, in your words</h2>
+      <textarea id="policyText" rows="3" spellcheck="false"></textarea>
+      <div class="actions"><button id="compile" class="primary">Compile rules</button><span class="muted" id="policyBy"></span></div>
+      <div class="chips" id="chips"></div>
+      <p class="muted small" id="policySummary"></p>
+    </article>
+
+    <article class="card wallet">
+      <h2>PayPal wallet</h2>
+      <div id="walletBody"></div>
+      <p class="muted small">Saved once with PayPal Vault. In-policy purchases are paid instantly with no redirect. Everything else waits for you.</p>
+    </article>
+  </section>
+
+  <section class="row two">
+    <article class="card agent">
+      <div class="head"><h2>Agent</h2><span class="muted small" id="agentMode"></span></div>
+      <form id="runForm" class="task">
+        <input id="task" autocomplete="off" value="We're out of printer paper and coffee, the toner is low, and our new hire needs a design tool seat. Restock the office.">
+        <button class="primary" id="runBtn">Run agent</button>
+      </form>
+      <label class="replay small muted" id="replayWrap"><input type="checkbox" id="replay"> Replay a compromised agent (it falls for a prompt injection in a product listing)</label>
+      <ol class="feed" id="feed"><li class="empty">Give the agent a task. Every purchase it attempts goes through Leash first.</li></ol>
+    </article>
+
+    <article class="card queue">
+      <div class="head"><h2>Waiting for you</h2><span class="badge" id="queueCount">0</span></div>
+      <div id="queue"></div>
+    </article>
+  </section>
+
+  <section class="card ledger">
+    <div class="head"><h2>Ledger</h2><div class="tools"><input id="search" placeholder="Search ledger" aria-label="Search ledger"><button id="csv" class="ghost small">Export CSV</button><button id="reset" class="ghost small">Reset demo</button></div></div>
+    <div id="grid"></div>
+  </section>
+</main>
+
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

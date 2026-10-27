@@ -1,0 +1,15 @@
+{
+  "name": "leash",
+  "version": "1.0.0",
+  "description": "A spending firewall between AI agents and your PayPal account.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.9" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0"
+  }
+}
