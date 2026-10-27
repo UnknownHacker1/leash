@@ -15,16 +15,15 @@ Call it a real but small chance (rough guess 5-15%) of some prize for ~3-4 hours
 
 F-1 note: hackathon prize money is generally treated as prize income, not employment, but it is taxable and your DSO is the person to confirm with before accepting. Entering and building is fine either way.
 
-## Your checklist (about 3-4 hours)
+## Status and what is left for you
 
-1. **Read the code (30-45 min).** You will be asked about it if you win (identity and role verification). Start with `src/policy.mjs`, then `server.mjs` `requestPurchase()`, then `src/paypal.mjs`.
-2. **Keys (20 min).**
-   - developer.paypal.com: log in, Apps & Credentials, Sandbox, create app. Enable Vault / save payment methods in the app features. Copy client ID and secret.
-   - console.anthropic.com: API key, add $5 credit (a full demo run costs cents).
-   - `cp .env.example .env`, paste both, `npm install`, `npm start`.
-3. **Smoke test the real path (20 min).** Connect PayPal wallet with the sandbox *personal* account (Developer dashboard > Testing tools > Sandbox accounts). Run the agent. Check orders show up in the sandbox *business* account. If Vault fails, the toast shows PayPal's error: the usual fix is enabling Vault on the app. Everything still works without Vault through the approval + checkout path.
-4. **Record the video (60 min).** Script below. OBS or Win+G, 1080p, under 3:00. Your own voice. No copyrighted music.
-5. **Publish (30 min).** `git init` is done; create a public GitHub repo `leash`, push, set the About description and make sure the MIT license shows. Upload video to YouTube as Public. Fill Devpost with the text below. Submit.
+Done: public repo github.com/UnknownHacker1/leash, registered for the hackathon on Devpost, 2:39 narrated demo video at docs/leash-demo.mp4 (offline mode, says so out loud).
+
+Left (about 20 min, plus optional live upgrade):
+1. **YouTube.** Upload docs/leash-demo.mp4 as Public. Title: "Leash: a spending firewall between AI agents and PayPal (PayPal AI Hackathon)". If Studio shows a half-finished draft named leash-demo, delete it or finish that one.
+2. **Devpost.** On the hackathon page click Start project (it shows an image CAPTCHA, which is why it's left to you). Paste the text below, add the GitHub link and YouTube link, built-with tags, testing note "npm install && npm start, no keys needed". Submit. Edits allowed until Nov 12, 2:00pm CST.
+3. **Read the code (30-45 min) before any judging call.** Start with src/policy.mjs, then requestPurchase() in server.mjs, then src/paypal.mjs.
+4. **Optional live upgrade before Nov 12.** developer.paypal.com: sandbox app with Vault enabled, copy client ID and secret. platform.claude.com: API key. cp .env.example .env, paste, npm start, re-record so judges see real sandbox order IDs and Claude's audit.
 
 ## Video script (target 2:40)
 
