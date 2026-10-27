@@ -22,7 +22,7 @@ Every attempt lands in an AG Grid ledger with the rule outcome, the AI verdict a
 Requires Node 22.9+.
 
 ```bash
-git clone <this repo> && cd leash
+git clone https://github.com/UnknownHacker1/leash && cd leash
 npm install
 npm start
 ```
