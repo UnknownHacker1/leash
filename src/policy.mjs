@@ -40,7 +40,7 @@ export function evaluate(req, policy, ledger, { now = Date.now(), frozen = false
   const cat = req.category.replace(/_/g, ' ');
 
   add('not frozen', !frozen, 'deny', 'the owner froze all agent spending');
-  add('category not blocked', !policy.blockedCategories.includes(req.category), 'deny', `${cat} are blocked`);
+  add('category not blocked', !policy.blockedCategories.includes(req.category), 'deny', `${cat} is a blocked category`);
   add('category allowed', !policy.allowedCategories.length || policy.allowedCategories.includes(req.category)
     || policy.blockedCategories.includes(req.category), 'deny',
     `${cat} is not an allowed category`);

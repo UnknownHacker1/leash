@@ -105,9 +105,9 @@ function render() {
   $('#forget')?.addEventListener('click', act(() => api('/api/vault/forget')));
   $('#connect')?.addEventListener('click', act(() => api('/api/vault/start'), $('#connect')));
 
-  $('#agentMode').textContent = modes.ai === 'offline' ? 'scripted demo agent (no API key)' : S.run?.scripted ? 'replaying compromised agent' : `agent: ${modes.ai}`;
+  $('#agentMode').textContent = modes.ai === 'offline' ? 'scripted demo agent (no API key)' : S.run?.scripted ? 'replaying compromised agent' : S.run?.external ? 'external agent over MCP' : `agent: ${modes.ai}`;
   $('#replayWrap').hidden = modes.ai === 'offline';
-  const running = S.run?.status === 'running';
+  const running = S.run?.status === 'running' && !S.run.external;
   $('#runBtn').disabled = running;
   $('#runBtn').textContent = running ? 'Running…' : 'Run agent';
   renderFeed();

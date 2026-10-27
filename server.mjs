@@ -80,9 +80,9 @@ async function requestPurchase({ product_id, quantity, justification }, run) {
   changed();
 
   if (e.status === 'paid') return `PAID $${e.amount.toFixed(2)} via PayPal (order ${e.paypal.orderId}). Budget left: $${budgetLeft()}.`;
-  if (e.status === 'pending') return `HELD for owner approval: ${[...e.reasons, audit.verdict !== 'ok' ? audit.reason : ''].filter(Boolean).join('; ')}. Do not retry; move on.`;
+  if (e.status === 'pending') return `HELD for owner approval: ${[...e.reasons, audit.verdict !== 'ok' ? audit.reason.replace(/\.$/, '') : ''].filter(Boolean).join('; ')}. Do not retry; move on.`;
   if (e.status === 'failed') return `Payment failed: ${e.error}`;
-  return `REFUSED by Leash: ${[...e.reasons, audit.verdict !== 'ok' ? `audit: ${audit.reason}` : ''].filter(Boolean).join('; ')}. Do not retry this item.`;
+  return `REFUSED by Leash: ${[...e.reasons, audit.verdict !== 'ok' ? `audit: ${audit.reason.replace(/\.$/, '')}` : ''].filter(Boolean).join('; ')}. Do not retry this item.`;
 }
 
 async function pay(e) {
@@ -99,11 +99,15 @@ async function pay(e) {
 
 const budgetLeft = () => publicState().remaining.toFixed(2);
 
-async function startRun(task, scripted) {
-  const run = { id: randomUUID().slice(0, 8), task, scripted, steps: [], status: 'running', startedAt: Date.now() };
+function newRun(task, extra) {
+  const run = { id: randomUUID().slice(0, 8), task, steps: [], status: 'running', startedAt: Date.now(), ...extra };
   S.run = run;
   const emit = step => { run.steps.push({ ...step, at: Date.now() }); changed(); };
-  const tools = {
+  return { run, emit, tools: makeTools(run, emit) };
+}
+
+function makeTools(run, emit) {
+  return {
     search_catalog: async ({ query }) => JSON.stringify(search(query)),
     get_product: async ({ product_id }) => {
       const p = byId(product_id);
@@ -116,6 +120,10 @@ async function startRun(task, scripted) {
       return out;
     },
   };
+}
+
+async function startRun(task, scripted) {
+  const { run, emit, tools } = newRun(task, { scripted });
   changed();
   try {
     await runAgent(task, tools, emit, { scripted });
@@ -151,11 +159,27 @@ const routes = {
     req.on('close', () => clients.delete(res));
   },
   'POST /api/run': async (req, res, b) => {
-    if (S.run?.status === 'running') return json(res, 409, { error: 'An agent run is already in progress.' });
+    if (S.run?.status === 'running' && !S.run.external) return json(res, 409, { error: 'An agent run is already in progress.' });
     const task = String(b.task || '').trim().slice(0, 600);
     if (!task) return json(res, 400, { error: 'Give the agent a task.' });
     startRun(task, !!b.scripted);
     json(res, 202, { ok: true });
+  },
+  // Any outside agent (see mcp.mjs) pays through the same firewall. It must say what task it is working on.
+  'POST /api/agent/call': async (req, res, b) => {
+    const tool = String(b.tool || '');
+    const task = String(b.task || '').trim().slice(0, 600);
+    if (!['search_catalog', 'get_product', 'request_purchase'].includes(tool)) return json(res, 400, { error: 'Unknown tool.' });
+    if (!task) return json(res, 400, { error: 'Say which task from your user you are working on.' });
+    if (S.run?.status === 'running' && !S.run.external) return json(res, 409, { error: 'The built-in agent is running; try again shortly.' });
+    let ctx = S.run?.external && S.run.task === task && S.run.status === 'running' && S.run.ctx;
+    if (!ctx) {
+      if (S.run?.external && S.run.status === 'running') S.run.status = 'done';
+      ctx = newRun(task, { external: true });
+      Object.defineProperty(ctx.run, 'ctx', { value: ctx, enumerable: false });
+    }
+    ctx.emit({ kind: 'tool', name: tool, input: b.input || {} });
+    json(res, 200, { result: await ctx.tools[tool](b.input || {}) });
   },
   'POST /api/policy/compile': async (req, res, b) => {
     const text = String(b.text || '').trim().slice(0, 1500);

@@ -46,6 +46,16 @@ Fill in:
 
 A real agent may be too smart to fall for the planted injection. To show the firewall catching a compromised agent, tick **Replay a compromised agent**: it replays a run where the agent believes the coffee listing and tries to buy the "Merchant Verification Card".
 
+## Use it from any agent (MCP)
+
+`mcp.mjs` is a stdio MCP server, so Claude Desktop, Claude Code, Cursor or any MCP client can shop through the same firewall. Keep `npm start` running, then add to your client's MCP config:
+
+```json
+{ "mcpServers": { "leash": { "command": "node", "args": ["/path/to/leash/mcp.mjs"] } } }
+```
+
+Claude Code: `claude mcp add leash -- node /path/to/leash/mcp.mjs`. The agent gets `search_catalog`, `get_product` and `request_purchase`; every call shows up live in the dashboard as "external agent over MCP", and every purchase is checked and audited exactly like the built-in agent's.
+
 ## How it fits together
 
 ```
@@ -66,6 +76,7 @@ agent (Claude tool loop)  ──request_purchase──▶  Leash
 | `src/paypal.mjs` | PayPal sandbox client: OAuth, Vault v3 setup and payment tokens, Orders v2 create and capture, refunds. Plus a mock with the same interface. |
 | `src/catalog.mjs` | Demo merchant feed, including one listing with a planted prompt injection. |
 | `server.mjs` | Zero-framework Node server, JSON API, server-sent events for live updates. |
+| `mcp.mjs` | MCP server (stdio, no dependencies) that lets any outside agent pay through Leash. |
 | `public/` | Dashboard. AG Grid Community for the ledger (sorting, filters, quick search, pinned totals, change flashing, CSV export). |
 
 Model: `claude-opus-5-5` by default (`LEASH_MODEL` to change), with server-side refusal fallback enabled.

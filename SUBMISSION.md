@@ -43,6 +43,8 @@ Click Compile rules, show chips. Click Connect, show sandbox login, back to dash
 **1:45-2:15 Control.** Ledger.
 "Every attempt is in the ledger: the rule outcome, Claude's verdict and reason, the PayPal order ID. Bought the wrong thing? One-click PayPal refund." Click Refund. Search the ledger, export CSV for accounting. Hit Freeze, run again, everything refused.
 
+**Optional 10 s, if time allows:** Claude Desktop or Claude Code with the Leash MCP server: "buy coffee for the office", show the call appear live in the dashboard.
+
 **2:15-2:40 Close.**
 "The model never gets the final say on money. Deterministic rules decide, the AI can only make things stricter, and PayPal handles the wallet, approvals and refunds. Leash: let agents shop, keep them on a leash."
 
@@ -54,7 +56,7 @@ Click Compile rules, show chips. Click Connect, show sandbox login, back to dash
 
 **What it does.** Leash sits between any AI agent and the owner's PayPal. The owner writes spending rules in plain English; Claude compiles them into a strict policy (budget window, per-purchase cap, approval threshold, allowed and blocked categories, velocity limit). Every purchase the agent attempts is checked by deterministic rules and then audited by Claude against the task the agent was actually given, catching prompt injection and off-task buys. In-policy purchases are paid instantly from a PayPal Vault wallet with no redirect. Anything above the approval line waits for a one-tap human approval. Refused purchases never touch PayPal. Every attempt lands in an AG Grid ledger with reasons, AI verdicts, PayPal order IDs, one-click refunds and CSV export, and a Freeze button stops all agent spending instantly.
 
-**How we built it.** Node 22 with no framework. PayPal: OAuth client credentials, Vault v3 setup tokens and payment tokens to save the owner's wallet, Orders v2 with `vault_id` for merchant-initiated instant capture, Orders v2 checkout plus capture for human-approved purchases, Payments v2 refunds, idempotency keys on every write. AI: Claude (claude-opus-5-5) via the Anthropic SDK in three roles: policy compiler and purchase auditor using structured JSON-schema outputs, and the shopping agent itself through a tool-use loop. AG Grid Community for the ledger. Server-sent events keep the dashboard live.
+**How we built it.** Node 22 with no framework. PayPal: OAuth client credentials, Vault v3 setup tokens and payment tokens to save the owner's wallet, Orders v2 with `vault_id` for merchant-initiated instant capture, Orders v2 checkout plus capture for human-approved purchases, Payments v2 refunds, idempotency keys on every write. An MCP server (stdio, zero dependencies) lets Claude Desktop, Claude Code, Cursor or any MCP agent pay through the same firewall. AI: Claude (claude-opus-5-5) via the Anthropic SDK in three roles: policy compiler and purchase auditor using structured JSON-schema outputs, and the shopping agent itself through a tool-use loop. AG Grid Community for the ledger. Server-sent events keep the dashboard live.
 
 **Challenges.** Deciding where the AI belongs. We let the model write the policy and judge intent, but never let it approve a payment on its own: the audit can only tighten a decision. Prices and categories come from the merchant feed, never from what the agent claims.
 
@@ -62,6 +64,6 @@ Click Compile rules, show chips. Click Connect, show sandbox login, back to dash
 
 **What we learned.** The hard part of agent payments isn't the API call, it's the control plane: who is allowed to spend what, who gets asked, and how you undo it.
 
-**What's next.** An MCP server so any agent framework can pay through Leash, per-agent wallets and budgets, PayPal webhooks for disputes, and a phone push for approvals.
+**What's next.** Per-agent wallets and budgets, PayPal webhooks for disputes, and a phone push for approvals.
 
-**Built with:** paypal, paypal-vault, paypal-orders-api, anthropic, claude, ag-grid, node.js, javascript, server-sent-events
+**Built with:** mcp, paypal, paypal-vault, paypal-orders-api, anthropic, claude, ag-grid, node.js, javascript, server-sent-events
