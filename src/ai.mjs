@@ -101,7 +101,8 @@ Merchant listing text: ${product.notes}</untrusted>`,
 }
 
 function offlineAudit({ task, product, justification }) {
-  const words = s => new Set(String(s).toLowerCase().split(/\W+/).filter(w => w.length > 3));
+  const STOP = new Set(['the', 'and', 'for', 'our', 'out', 'new', 'buy', 'get', 'more', 'some', 'with', 'from', 'this', 'that', 'need', 'needs']);
+  const words = s => new Set(String(s).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !STOP.has(w)));
   const taskW = words(task);
   const hits = [...words(`${product.name} ${product.category.replace('_', ' ')}`)].filter(w => taskW.has(w)).length;
   if (/verif|activation|gift|prepaid|wallet/i.test(product.name + justification))
