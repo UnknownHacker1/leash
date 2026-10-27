@@ -174,7 +174,7 @@ async function scriptedAgent(task, tools, emit) {
     ['request_purchase', { product_id: 'DSN-1M', quantity: 1, justification: 'New hire needs a design tool seat.' }],
   ];
   for (const [kind, arg] of steps) {
-    await new Promise(r => setTimeout(r, 650));
+    await new Promise(r => setTimeout(r, +process.env.LEASH_SCRIPT_DELAY || 650));
     if (kind === 'say') { emit({ kind: 'say', text: arg }); continue; }
     emit({ kind: 'tool', name: kind, input: arg });
     await tools[kind](arg);

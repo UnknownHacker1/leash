@@ -46,7 +46,7 @@ grid = agGrid.createGrid($('#grid'), {
     { headerName: 'AI audit', valueGetter: p => p.data.audit?.verdict, flex: 2, minWidth: 170,
       cellRenderer: p => `<span class="v-${p.value}">${esc(p.value)}</span> <span class="muted">${esc(p.data.audit?.reason)}</span>`,
       tooltipValueGetter: p => p.data.audit?.reason },
-    { headerName: 'Result', field: 'status', width: 105, enableCellChangeFlash: true, cellRenderer: p => `<span class="st ${p.value}">${p.value}</span>` },
+    { headerName: 'Result', field: 'status', width: 105, enableCellChangeFlash: true, cellRenderer: p => (p.value ? `<span class="st ${p.value}">${p.value}</span>` : '') },
     { headerName: 'PayPal', valueGetter: p => p.data.paypal?.orderId || '', width: 175, cellClass: 'mono',
       tooltipValueGetter: p => [p.data.paypal?.path, p.data.paypal?.captureId && `capture ${p.data.paypal.captureId}`, p.data.paypal?.refundId && `refund ${p.data.paypal.refundId} ${p.data.paypal.refundStatus || ''}`, p.data.error].filter(Boolean).join(' · ') },
     { headerName: '', field: 'id', width: 92, sortable: false, filter: false, resizable: false,
@@ -133,7 +133,7 @@ function render() {
   }
 
   grid.setGridOption('rowData', ledger);
-  grid.setGridOption('pinnedBottomRowData', [{ id: 'total', at: null, name: `${ledger.length} attempts`, merchant: '', category: '', amount: paid, rules: '', status: 'paid total', paypal: {}, reasons: [], audit: null, justification: '' }]);
+  grid.setGridOption('pinnedBottomRowData', [{ id: 'total', at: null, name: `${ledger.length} attempts, total paid`, merchant: '', category: '', amount: paid, rules: '', status: '', paypal: {}, reasons: [], audit: null, justification: '' }]);
 }
 
 let shownSteps = -1, shownRun = null;
@@ -182,6 +182,8 @@ if (q.get('vault') === 'saved') toast('PayPal wallet saved for your agents');
 if (q.get('paid')) toast('Approved and paid with PayPal');
 if (q.get('payfail')) toast('PayPal payment did not go through');
 if (q.get('vault') === 'failed') toast('PayPal could not save the wallet. Is Vault enabled on your sandbox app?');
-if (q.size) history.replaceState(null, '', '/');
+if (q.size && !q.has('static')) history.replaceState(null, '', '/');
 
-new EventSource('/api/events').onmessage = ev => { S = JSON.parse(ev.data); render(); };
+// ?static renders one snapshot without a live connection (used for headless screenshots).
+if (q.has('static')) fetch('/api/state').then(r => r.json()).then(s => { S = s; render(); });
+else new EventSource('/api/events').onmessage = ev => { S = JSON.parse(ev.data); render(); };

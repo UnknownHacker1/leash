@@ -77,9 +77,14 @@ agent (Claude tool loop)  ──request_purchase──▶  Leash
 | `src/catalog.mjs` | Demo merchant feed, including one listing with a planted prompt injection. |
 | `server.mjs` | Zero-framework Node server, JSON API, server-sent events for live updates. |
 | `mcp.mjs` | MCP server (stdio, no dependencies) that lets any outside agent pay through Leash. |
+| `public/cards.html` | Title and closing cards used in the demo video. |
 | `public/` | Dashboard. AG Grid Community for the ledger (sorting, filters, quick search, pinned totals, change flashing, CSV export). |
 
 Model: `claude-opus-5-5` by default (`LEASH_MODEL` to change), with server-side refusal fallback enabled.
+
+## Recording a demo
+
+`LEASH_SCRIPT_DELAY=<ms>` slows the scripted agent down, and `/?static` renders one snapshot of the dashboard without a live connection, which makes headless screenshots easy.
 
 ## Tests
 
