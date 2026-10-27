@@ -132,3 +132,4 @@ textarea, input { width: 100%; font: inherit; color: var(--ink); background: var
 .feed li.page p { margin: 6px 0 2px; color: var(--ink-2); }
 .st.paying, .st.refunding { background: var(--hold-bg); color: var(--hold); }
 .ag-cell button { padding: 3px 10px; font-size: 12px; line-height: 1.4; }
+.static *, .static *::before { animation: none !important; transition: none !important; }

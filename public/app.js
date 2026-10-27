@@ -185,5 +185,5 @@ if (q.get('vault') === 'failed') toast('PayPal could not save the wallet. Is Vau
 if (q.size && !q.has('static')) history.replaceState(null, '', '/');
 
 // ?static renders one snapshot without a live connection (used for headless screenshots).
-if (q.has('static')) fetch('/api/state').then(r => r.json()).then(s => { S = s; render(); });
+if (q.has('static')) { document.documentElement.classList.add('static'); fetch('/api/state').then(r => r.json()).then(s => { S = s; render(); }); }
 else new EventSource('/api/events').onmessage = ev => { S = JSON.parse(ev.data); render(); };
