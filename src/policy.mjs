@@ -26,7 +26,7 @@ export const stricter = (a, b) => (RANK[a] >= RANK[b] ? a : b);
 export function committed(ledger, policy, now = Date.now()) {
   const since = now - (PERIOD_MS[policy.budget.period] ?? PERIOD_MS.week);
   return round2(ledger
-    .filter(e => e.at >= since && (e.status === 'paid' || e.status === 'pending'))
+    .filter(e => e.at >= since && ['paid', 'pending', 'paying', 'refunding'].includes(e.status))
     .reduce((s, e) => s + e.amount, 0));
 }
 

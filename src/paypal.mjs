@@ -36,7 +36,8 @@ export function createPayPal({ clientId, secret, publicUrl }) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await r.text();
-    const j = text ? JSON.parse(text) : {};
+    let j = {};
+    try { j = text ? JSON.parse(text) : {}; } catch { j = { message: text.slice(0, 200) }; }
     if (!r.ok) {
       const why = j.details?.map(d => d.issue + (d.description ? ` (${d.description})` : '')).join('; ') || j.message || r.status;
       throw new Error(`PayPal ${method} ${path}: ${why}`);

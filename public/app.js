@@ -48,7 +48,7 @@ grid = agGrid.createGrid($('#grid'), {
       tooltipValueGetter: p => p.data.audit?.reason },
     { headerName: 'Result', field: 'status', width: 105, enableCellChangeFlash: true, cellRenderer: p => `<span class="st ${p.value}">${p.value}</span>` },
     { headerName: 'PayPal', valueGetter: p => p.data.paypal?.orderId || '', width: 175, cellClass: 'mono',
-      tooltipValueGetter: p => [p.data.paypal?.path, p.data.paypal?.captureId && `capture ${p.data.paypal.captureId}`, p.data.paypal?.refundId && `refund ${p.data.paypal.refundId}`, p.data.error].filter(Boolean).join(' · ') },
+      tooltipValueGetter: p => [p.data.paypal?.path, p.data.paypal?.captureId && `capture ${p.data.paypal.captureId}`, p.data.paypal?.refundId && `refund ${p.data.paypal.refundId} ${p.data.paypal.refundStatus || ''}`, p.data.error].filter(Boolean).join(' · ') },
     { headerName: '', field: 'id', width: 92, sortable: false, filter: false, resizable: false,
       cellRenderer: p => {
         if (p.data.status !== 'paid') return '';
@@ -124,7 +124,10 @@ function render() {
       ${e.audit?.verdict !== 'ok' ? `<div class="ai">AI audit: <span class="v-${e.audit.verdict}">${e.audit.verdict}</span>, ${esc(e.audit.reason)}</div>` : ''}
       <div class="btns"><button class="approve">${S.wallet ? 'Approve & pay' : 'Pay with PayPal'}</button><button class="ghost reject">Reject</button></div>`;
     const [a, r] = el.querySelectorAll('button');
-    a.onclick = act(async () => { await api(`/api/entries/${e.id}/approve`); toast('Paid with PayPal'); }, a);
+    a.onclick = act(async () => {
+      const r = await api(`/api/entries/${e.id}/approve`);
+      if (r.status) toast(r.status === 'paid' ? 'Paid with PayPal' : `PayPal payment failed: ${r.error || r.status}`);
+    }, a);
     r.onclick = act(() => api(`/api/entries/${e.id}/reject`), r);
     $('#queue').append(el);
   }
@@ -177,6 +180,8 @@ $('#reset').addEventListener('click', act(async () => { await api('/api/reset');
 const q = new URLSearchParams(location.search);
 if (q.get('vault') === 'saved') toast('PayPal wallet saved for your agents');
 if (q.get('paid')) toast('Approved and paid with PayPal');
+if (q.get('payfail')) toast('PayPal payment did not go through');
+if (q.get('vault') === 'failed') toast('PayPal could not save the wallet. Is Vault enabled on your sandbox app?');
 if (q.size) history.replaceState(null, '', '/');
 
 new EventSource('/api/events').onmessage = ev => { S = JSON.parse(ev.data); render(); };

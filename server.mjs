@@ -16,6 +16,7 @@ const DATA = join(ROOT, 'data', 'state.json');
 const paypal = createPayPal({ clientId: process.env.PAYPAL_CLIENT_ID, secret: process.env.PAYPAL_CLIENT_SECRET, publicUrl: PUBLIC_URL });
 
 const fresh = () => ({
+  mode: paypal.mode,
   policy: structuredClone(DEFAULT_POLICY),
   policyText: 'Let the agent spend up to $150 a week on office supplies, software and coffee. Ask me before anything over $40. Never buy gift cards or crypto.',
   policySummary: 'Default policy.',
@@ -26,6 +27,9 @@ const fresh = () => ({
   run: null,
 });
 let S = existsSync(DATA) ? { ...fresh(), ...JSON.parse(readFileSync(DATA, 'utf8')), run: null } : fresh();
+// Don't carry mock data into the real sandbox (or the other way round).
+if (S.mode && S.mode !== paypal.mode) S = fresh();
+S.mode = paypal.mode;
 
 // ---- live updates ----
 const clients = new Set();
@@ -46,7 +50,15 @@ function changed() {
 }
 
 // ---- the firewall ----
-async function requestPurchase({ product_id, quantity, justification }, run) {
+// One purchase at a time, so parallel tool calls can't both slip under the budget while the audit runs.
+let purchaseLock = Promise.resolve();
+function requestPurchase(input, run) {
+  const r = purchaseLock.then(() => checkAndPay(input, run));
+  purchaseLock = r.catch(() => {});
+  return r;
+}
+
+async function checkAndPay({ product_id, quantity, justification }, run) {
   const p = byId(product_id);
   if (!p) return `No product ${product_id}. Use search_catalog to find valid ids.`;
   const qty = Math.min(20, Math.max(1, Math.round(+quantity || 1)));
@@ -72,7 +84,11 @@ async function requestPurchase({ product_id, quantity, justification }, run) {
   };
   S.ledger.unshift(e);
 
-  if (final === 'allow' && S.wallet) {
+  if (final === 'allow' && S.frozen) {
+    e.final = 'deny';
+    e.status = 'denied';
+    e.reasons.push('the owner froze all agent spending');
+  } else if (final === 'allow' && S.wallet) {
     await pay(e);
   } else if (final === 'allow') {
     e.reasons.push('no saved PayPal wallet: owner pays at checkout');
@@ -172,7 +188,10 @@ const routes = {
     if (!['search_catalog', 'get_product', 'request_purchase'].includes(tool)) return json(res, 400, { error: 'Unknown tool.' });
     if (!task) return json(res, 400, { error: 'Say which task from your user you are working on.' });
     if (S.run?.status === 'running' && !S.run.external) return json(res, 409, { error: 'The built-in agent is running; try again shortly.' });
-    let ctx = S.run?.external && S.run.task === task && S.run.status === 'running' && S.run.ctx;
+    // Agents reword their task between calls, so keep one run while the agent stays active.
+    const recent = S.run?.external && S.run.status === 'running' && Date.now() - (S.run.steps.at(-1)?.at ?? 0) < 10 * 60e3;
+    let ctx = recent && S.run.ctx;
+    if (ctx) ctx.run.task = task;
     if (!ctx) {
       if (S.run?.external && S.run.status === 'running') S.run.status = 'done';
       ctx = newRun(task, { external: true });
@@ -204,9 +223,14 @@ const routes = {
   },
   'POST /api/vault/forget': async (req, res) => { S.wallet = null; changed(); json(res, 200, { ok: true }); },
   'GET /paypal/vault-return': async (req, res, b, url) => {
-    const id = S.pendingSetup || url.searchParams.get('approval_token_id');
+    const id = url.searchParams.get('approval_token_id') || S.pendingSetup;
     if (!id) return redirect(res, '/?vault=missing');
-    S.wallet = { ...(await paypal.finishVault(id)), savedAt: Date.now() };
+    try {
+      S.wallet = { ...(await paypal.finishVault(id)), savedAt: Date.now() };
+    } catch (err) {
+      console.error(err);
+      return redirect(res, '/?vault=failed');
+    }
     S.pendingSetup = null;
     changed();
     redirect(res, '/?vault=saved');
@@ -214,8 +238,9 @@ const routes = {
   'GET /paypal/return': async (req, res, b, url) => {
     const e = entry(url.searchParams.get('pid'));
     const orderId = url.searchParams.get('token');
-    if (!e || !orderId) return redirect(res, '/?paid=missing');
-    if (e.status !== 'paid') {
+    if (!e || !orderId || (e.paypal.orderId && e.paypal.orderId !== orderId)) return redirect(res, '/?payfail=1');
+    if (e.status === 'pending') {
+      e.status = 'paying';
       try {
         Object.assign(e.paypal, await paypal.captureCheckout(orderId, e.id), { path: 'owner checkout' });
         e.status = 'paid';
@@ -224,7 +249,7 @@ const routes = {
       } catch (err) { e.status = 'failed'; e.error = err.message; }
       changed();
     }
-    redirect(res, '/?paid=' + e.id);
+    redirect(res, e.status === 'paid' ? '/?paid=' + e.id : '/?payfail=1');
   },
 };
 
@@ -232,7 +257,13 @@ const entryRoutes = {
   approve: async (res, e) => {
     if (e.status !== 'pending') return json(res, 409, { error: `Already ${e.status}.` });
     e.approvedBy = 'owner';
-    if (S.wallet) { await pay(e); changed(); return json(res, 200, { status: e.status }); }
+    if (S.wallet) {
+      e.status = 'paying';
+      changed();
+      await pay(e);
+      changed();
+      return json(res, 200, { status: e.status, error: e.error });
+    }
     const r = await paypal.createCheckout({ id: e.id, amount: e.amount, description: `${e.quantity} x ${e.name} (${e.merchant})` });
     e.paypal.orderId = r.orderId;
     changed();
@@ -246,7 +277,15 @@ const entryRoutes = {
   },
   refund: async (res, e) => {
     if (e.status !== 'paid') return json(res, 409, { error: 'Only paid purchases can be refunded.' });
-    Object.assign(e.paypal, await paypal.refund(e.paypal.captureId, e.id));
+    e.status = 'refunding';
+    try {
+      const r = await paypal.refund(e.paypal.captureId, e.id);
+      Object.assign(e.paypal, { refundId: r.refundId, refundStatus: r.status });
+    } catch (err) {
+      e.status = 'paid';
+      changed();
+      throw err;
+    }
     e.status = 'refunded';
     changed();
     json(res, 200, { status: e.status });

@@ -129,8 +129,10 @@ export async function runAgent(task, tools, emit, { scripted = false } = {}) {
     const r = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 8000,
-      betas: ['server-side-fallback-2026-07-01'],
+      betas: ['server-side-fallback-2026-07-01', 'thinking-display-updates-2026-08-18'],
       fallbacks: 'default',
+      // Progress notes between tool calls arrive as short thinking summaries on this model.
+      thinking: { type: 'adaptive', display: 'updates' },
       output_config: { effort: 'low' },
       system: `You are the purchasing agent for Halcyon Studio, a 9-person design studio. Buy what the task asks for using the tools.
 Look at product pages before buying. Pay only through request_purchase. Keep a one-line note before each tool call saying what you are doing.
@@ -139,7 +141,10 @@ When done, reply with a two-line summary of what was bought, what is waiting for
       messages,
     });
     messages.push({ role: 'assistant', content: r.content });
-    for (const b of r.content) if (b.type === 'text' && b.text.trim()) emit({ kind: 'say', text: b.text.trim() });
+    for (const b of r.content) {
+      const t = b.type === 'text' ? b.text : b.type === 'thinking' ? b.thinking : '';
+      if (t?.trim()) emit({ kind: 'say', text: t.trim() });
+    }
     if (r.stop_reason === 'refusal') { emit({ kind: 'say', text: 'Model declined to continue.' }); break; }
     if (r.stop_reason !== 'tool_use') break;
     const results = [];
